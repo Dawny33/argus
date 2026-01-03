@@ -8,7 +8,6 @@ import json
 import os
 import smtplib
 from datetime import datetime
-from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Dict, List, Set
 import requests
@@ -209,8 +208,9 @@ class IndexMonitor:
     
     def format_email_body(self, changes: Dict[str, Dict[str, List[str]]]) -> str:
         """Format the email body with changes"""
-        # Use simple date format
+        # Use simple date format and force ASCII
         month_year = datetime.now().strftime('%Y-%m')
+        month_year = month_year.encode('ascii', 'ignore').decode('ascii')
         
         if not changes:
             body = "No Index Constituent Changes - " + month_year + "\n\n"
@@ -258,11 +258,16 @@ class IndexMonitor:
         
         recipient = self.config['email']['recipient']
         
-        # Create simple email message
-        msg = MIMEText(body, 'plain', 'utf-8')
-        msg['Subject'] = subject
-        msg['From'] = sender
-        msg['To'] = recipient
+        # Force everything to ASCII
+        subject = subject.encode('ascii', 'ignore').decode('ascii')
+        body = body.encode('ascii', 'ignore').decode('ascii')
+        
+        # Build simple email
+        message = "From: " + sender + "\n"
+        message += "To: " + recipient + "\n"
+        message += "Subject: " + subject + "\n"
+        message += "\n"
+        message += body
         
         try:
             server = smtplib.SMTP(
@@ -271,7 +276,7 @@ class IndexMonitor:
             )
             server.starttls()
             server.login(sender, password)
-            server.sendmail(sender, [recipient], msg.as_string())
+            server.sendmail(sender, [recipient], message)
             server.quit()
             print(f"Email sent successfully to {recipient}")
         except Exception as e:
@@ -301,8 +306,10 @@ class IndexMonitor:
         self.save_current_state(current_state)
         print("Current state saved")
         
-        # Always send email
+        # Generate month_year and clean it
         month_year = datetime.now().strftime('%Y-%m')
+        # Force ASCII by removing any non-ASCII characters
+        month_year = month_year.encode('ascii', 'ignore').decode('ascii')
         
         if changes:
             print(f"\n{len(changes)} index(es) have changes")
@@ -312,6 +319,10 @@ class IndexMonitor:
             print("\nNo changes detected")
             email_body = self.format_email_body(changes)
             subject = "No Index Changes - " + month_year
+        
+        # Force clean subject and body
+        subject = subject.encode('ascii', 'ignore').decode('ascii')
+        email_body = email_body.encode('ascii', 'ignore').decode('ascii')
         
         print("\n" + email_body)
         self.send_email(subject, email_body)
