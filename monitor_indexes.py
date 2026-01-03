@@ -231,7 +231,15 @@ class IndexMonitor:
     def format_email_body(self, changes: Dict[str, Dict[str, List[str]]]) -> str:
         """Format the email body with changes"""
         if not changes:
-            return "No changes detected in any index constituents."
+            body = "No Index Constituent Changes - " + datetime.now().strftime("%B %Y") + "\n\n"
+            body += "=" * 60 + "\n\n"
+            body += "All monitored indexes remain unchanged:\n\n"
+            for index in self.config['indexes']:
+                body += f"  ✓ {index}\n"
+            body += "\n"
+            body += "Your monitoring system is working correctly.\n"
+            body += "You'll receive an email next month with any changes detected."
+            return body
         
         body = "Index Constituent Changes - " + datetime.now().strftime("%B %Y") + "\n\n"
         body += "=" * 60 + "\n\n"
@@ -316,16 +324,18 @@ class IndexMonitor:
         self.save_current_state(current_state)
         print("Current state saved")
         
-        # Send email if there are changes
+        # Always send email (whether changes or not)
         if changes:
             print(f"\n{len(changes)} index(es) have changes")
             email_body = self.format_email_body(changes)
-            print("\n" + email_body)
-            
             subject = f"Index Changes Detected - {datetime.now().strftime('%B %Y')}"
-            self.send_email(subject, email_body)
         else:
             print("\nNo changes detected")
+            email_body = self.format_email_body(changes)
+            subject = f"No Index Changes - {datetime.now().strftime('%B %Y')}"
+        
+        print("\n" + email_body)
+        self.send_email(subject, email_body)
 
 
 if __name__ == "__main__":
