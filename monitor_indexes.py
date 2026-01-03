@@ -268,12 +268,16 @@ class IndexMonitor:
         
         recipient = self.config['email']['recipient']
         
+        # Clean body to remove non-breaking spaces and other problematic characters
+        body = body.replace('\xa0', ' ').replace('\u00a0', ' ')
+        
         msg = MIMEMultipart()
         msg['From'] = sender
         msg['To'] = recipient
         msg['Subject'] = subject
         
-        msg.attach(MIMEText(body, 'plain'))
+        # Specify UTF-8 encoding explicitly
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
         try:
             server = smtplib.SMTP(
