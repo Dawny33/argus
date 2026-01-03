@@ -172,6 +172,10 @@ class IndexMonitor:
             print(f"Error fetching QQQM: {e}")
             return set()
     
+    def clean_symbol(self, symbol: str) -> str:
+        """Clean stock symbol by removing non-breaking spaces and special characters"""
+        return symbol.replace('\xa0', ' ').replace('\u00a0', ' ').strip()
+    
     def fetch_all_constituents(self) -> Dict[str, Set[str]]:
         """Fetch constituents for all configured indexes"""
         current_state = {}
@@ -189,6 +193,9 @@ class IndexMonitor:
                 constituents = self.fetch_qqqm_constituents()
             else:
                 constituents = set()
+            
+            # Clean all symbols
+            constituents = {self.clean_symbol(s) for s in constituents}
             
             current_state[index] = list(constituents)
             print(f"  Found {len(constituents)} constituents")
@@ -276,7 +283,8 @@ class IndexMonitor:
         
         recipient = self.config['email']['recipient']
         
-        # Clean body to remove non-breaking spaces and other problematic characters
+        # Clean both subject and body to remove problematic characters
+        subject = subject.replace('\xa0', ' ').replace('\u00a0', ' ').encode('ascii', 'ignore').decode('ascii')
         body = body.replace('\xa0', ' ').replace('\u00a0', ' ')
         
         msg = MIMEMultipart()
