@@ -248,8 +248,15 @@ class IndexMonitor:
     
     def send_email(self, subject: str, body: str):
         """Send email notification"""
-        sender = os.environ.get('EMAIL_SENDER')
-        password = os.environ.get('EMAIL_PASSWORD')
+        sender = os.environ.get('EMAIL_SENDER', '')
+        password = os.environ.get('EMAIL_PASSWORD', '')
+        
+        # FORCE CLEAN secrets immediately - strip all whitespace and non-ASCII
+        sender = ''.join(sender.split())  # Remove ALL whitespace
+        sender = sender.encode('ascii', 'ignore').decode('ascii')
+        
+        password = ''.join(password.split())  # Remove ALL whitespace  
+        password = password.encode('ascii', 'ignore').decode('ascii')
         
         if not sender or not password:
             print("Email credentials not found in environment variables")
@@ -258,9 +265,13 @@ class IndexMonitor:
         
         recipient = self.config['email']['recipient']
         
-        # CRITICAL: Clean email addresses too!
-        sender = sender.encode('ascii', 'ignore').decode('ascii').strip()
-        recipient = recipient.encode('ascii', 'ignore').decode('ascii').strip()
+        # Clean recipient from config file too
+        recipient = ''.join(recipient.split())  # Remove ALL whitespace
+        recipient = recipient.encode('ascii', 'ignore').decode('ascii')
+        
+        print(f"DEBUG: Sender length: {len(sender)}, Recipient length: {len(recipient)}")
+        print(f"DEBUG: Sender: {repr(sender)}")
+        print(f"DEBUG: Recipient: {repr(recipient)}")
         
         # Force everything to ASCII
         subject = subject.encode('ascii', 'ignore').decode('ascii')
@@ -273,6 +284,17 @@ class IndexMonitor:
         message += "\n"
         message += body
         
+        print(f"DEBUG: Message first 150 chars: {repr(message[:150])}")
+        
+        # Verify entire message is ASCII
+        try:
+            message.encode('ascii')
+            print("DEBUG: Message is ASCII-safe")
+        except UnicodeEncodeError as e:
+            print(f"ERROR: Non-ASCII at position {e.start}: {repr(message[e.start])}")
+            print(f"Context: {repr(message[max(0,e.start-20):e.start+20])}")
+            return
+        
         try:
             server = smtplib.SMTP(
                 self.config['email']['smtp_server'],
@@ -280,7 +302,6 @@ class IndexMonitor:
             )
             server.starttls()
             server.login(sender, password)
-            # Pass message as string - smtplib will handle encoding
             server.sendmail(sender, [recipient], message)
             server.quit()
             print(f"Email sent successfully to {recipient}")
