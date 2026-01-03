@@ -8,7 +8,6 @@ import json
 import os
 import smtplib
 from datetime import datetime
-from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 from typing import Dict, List, Set
@@ -56,6 +55,10 @@ class IndexMonitor:
         with open(self.config_file, 'w') as f:
             json.dump(self.config, f, indent=2)
     
+    def clean_symbol(self, symbol: str) -> str:
+        """Clean stock symbol"""
+        return symbol.replace('\xa0', ' ').replace('\u00a0', ' ').strip()
+    
     def fetch_nifty_constituents(self, index_name: str) -> Set[str]:
         """Fetch constituents for Nifty indexes from NSE"""
         index_mapping = {
@@ -70,18 +73,15 @@ class IndexMonitor:
             return set()
         
         try:
-            # NSE requires headers to prevent blocking
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json',
                 'Accept-Language': 'en-US,en;q=0.9',
             }
             
-            # Try the equity stockIndices API
             url = f"https://www.nseindia.com/api/equity-stockIndices?index={nse_name.replace(' ', '%20')}"
             
             session = requests.Session()
-            # First visit homepage to get cookies
             session.get("https://www.nseindia.com", headers=headers, timeout=10)
             time.sleep(1)
             
@@ -95,40 +95,29 @@ class IndexMonitor:
             
         except Exception as e:
             print(f"Error fetching {index_name}: {e}")
-            # Fallback: try CSV download method
             try:
                 csv_url = f"https://archives.nseindia.com/content/indices/ind_{nse_name.replace(' ', '').lower()}list.csv"
                 df = pd.read_csv(csv_url)
-                return set(df.iloc[:, 2].dropna().tolist())  # Symbol column
+                return set(df.iloc[:, 2].dropna().tolist())
             except:
                 return set()
     
     def fetch_nasdaq100_constituents(self) -> Set[str]:
         """Fetch Nasdaq 100 constituents"""
         try:
-            url = "https://www.nasdaq.com/market-activity/quotes/nasdaq-ndx-index"
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             }
             
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            # Parse the page - Nasdaq provides data in various formats
-            # This might need adjustment based on current page structure
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Alternative: Use Wikipedia as a reliable source
             wiki_url = "https://en.wikipedia.org/wiki/Nasdaq-100"
             response = requests.get(wiki_url, headers=headers, timeout=10)
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find the constituents table
             tables = soup.find_all('table', {'class': 'wikitable'})
             constituents = set()
             
             for table in tables:
-                rows = table.find_all('tr')[1:]  # Skip header
+                rows = table.find_all('tr')[1:]
                 for row in rows:
                     cells = row.find_all('td')
                     if len(cells) >= 2:
@@ -143,38 +132,21 @@ class IndexMonitor:
             return set()
     
     def fetch_vxus_constituents(self) -> Set[str]:
-        """Fetch VXUS (Vanguard Total International Stock ETF) top holdings"""
+        """Fetch VXUS top holdings"""
         try:
-            # VXUS tracks FTSE Global All Cap ex US Index
-            # We'll track top holdings from Vanguard's site
-            url = "https://investor.vanguard.com/investment-products/etfs/profile/vxus"
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-            
-            # Note: VXUS has thousands of holdings, so we track top holdings
-            # This is a placeholder - actual implementation may need API access
             print("VXUS: Tracking top holdings only (full list requires API access)")
             return set()
-            
         except Exception as e:
             print(f"Error fetching VXUS: {e}")
             return set()
     
     def fetch_qqqm_constituents(self) -> Set[str]:
-        """Fetch QQQM (Invesco NASDAQ 100 ETF) constituents"""
+        """Fetch QQQM constituents"""
         try:
-            # QQQM tracks the same index as QQQ (Nasdaq-100)
-            # So we can use the same constituents as Nasdaq 100
             return self.fetch_nasdaq100_constituents()
-            
         except Exception as e:
             print(f"Error fetching QQQM: {e}")
             return set()
-    
-    def clean_symbol(self, symbol: str) -> str:
-        """Clean stock symbol by removing non-breaking spaces and special characters"""
-        return symbol.replace('\xa0', ' ').replace('\u00a0', ' ').strip()
     
     def fetch_all_constituents(self) -> Dict[str, Set[str]]:
         """Fetch constituents for all configured indexes"""
@@ -199,7 +171,7 @@ class IndexMonitor:
             
             current_state[index] = list(constituents)
             print(f"  Found {len(constituents)} constituents")
-            time.sleep(2)  # Rate limiting
+            time.sleep(2)
         
         return current_state
     
@@ -237,37 +209,37 @@ class IndexMonitor:
     
     def format_email_body(self, changes: Dict[str, Dict[str, List[str]]]) -> str:
         """Format the email body with changes"""
-        # Use simple formatting to avoid locale issues
-        month_year = datetime.now().strftime("%Y-%m")
+        # Use simple date format
+        month_year = datetime.now().strftime('%Y-%m')
         
         if not changes:
-            body = f"No Index Constituent Changes - {month_year}\n\n"
+            body = "No Index Constituent Changes - " + month_year + "\n\n"
             body += "=" * 60 + "\n\n"
             body += "All monitored indexes remain unchanged:\n\n"
             for index in self.config['indexes']:
-                body += f"  - {index}\n"
+                body += "  - " + index + "\n"
             body += "\n"
             body += "Your monitoring system is working correctly.\n"
-            body += "You'll receive an email next month with any changes detected."
+            body += "You will receive an email next month with any changes detected."
             return body
         
-        body = f"Index Constituent Changes - {month_year}\n\n"
+        body = "Index Constituent Changes - " + month_year + "\n\n"
         body += "=" * 60 + "\n\n"
         
         for index, change in changes.items():
-            body += f"{index}\n"
+            body += index + "\n"
             body += "-" * len(index) + "\n"
             
             if change['added']:
-                body += f"Added ({len(change['added'])}):\n"
+                body += "Added (" + str(len(change['added'])) + "):\n"
                 for stock in change['added']:
-                    body += f"  + {stock}\n"
+                    body += "  + " + stock + "\n"
                 body += "\n"
             
             if change['removed']:
-                body += f"Removed ({len(change['removed'])}):\n"
+                body += "Removed (" + str(len(change['removed'])) + "):\n"
                 for stock in change['removed']:
-                    body += f"  - {stock}\n"
+                    body += "  - " + stock + "\n"
                 body += "\n"
             
             body += "\n"
@@ -286,13 +258,11 @@ class IndexMonitor:
         
         recipient = self.config['email']['recipient']
         
-        # Create email message
-        msg = MIMEMultipart()
+        # Create simple email message
+        msg = MIMEText(body, 'plain', 'utf-8')
+        msg['Subject'] = subject
         msg['From'] = sender
         msg['To'] = recipient
-        msg['Subject'] = subject
-        
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
         try:
             server = smtplib.SMTP(
@@ -301,7 +271,7 @@ class IndexMonitor:
             )
             server.starttls()
             server.login(sender, password)
-            server.send_message(msg)
+            server.sendmail(sender, [recipient], msg.as_string())
             server.quit()
             print(f"Email sent successfully to {recipient}")
         except Exception as e:
@@ -331,17 +301,17 @@ class IndexMonitor:
         self.save_current_state(current_state)
         print("Current state saved")
         
-        # Always send email (whether changes or not)
-        month_year = datetime.now().strftime("%Y-%m")
+        # Always send email
+        month_year = datetime.now().strftime('%Y-%m')
         
         if changes:
             print(f"\n{len(changes)} index(es) have changes")
             email_body = self.format_email_body(changes)
-            subject = f"Index Changes Detected - {month_year}"
+            subject = "Index Changes Detected - " + month_year
         else:
             print("\nNo changes detected")
             email_body = self.format_email_body(changes)
-            subject = f"No Index Changes - {month_year}"
+            subject = "No Index Changes - " + month_year
         
         print("\n" + email_body)
         self.send_email(subject, email_body)
