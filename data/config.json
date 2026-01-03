@@ -1,0 +1,16 @@
+{
+      "indexes": [
+        "Nifty 50",
+        "Nifty Next 50",
+        "Nifty Midcap 150",
+        "Nifty Smallcap 250",
+        "Nasdaq 100",
+        "VXUS",
+        "QQQM"
+      ],
+      "email": {
+        "recipient": "jrajrohit33@gmail.com",
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 587
+      }
+    }
