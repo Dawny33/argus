@@ -237,18 +237,21 @@ class IndexMonitor:
     
     def format_email_body(self, changes: Dict[str, Dict[str, List[str]]]) -> str:
         """Format the email body with changes"""
+        # Use simple formatting to avoid locale issues
+        month_year = datetime.now().strftime("%Y-%m")
+        
         if not changes:
-            body = "No Index Constituent Changes - " + datetime.now().strftime("%B %Y") + "\n\n"
+            body = f"No Index Constituent Changes - {month_year}\n\n"
             body += "=" * 60 + "\n\n"
             body += "All monitored indexes remain unchanged:\n\n"
             for index in self.config['indexes']:
-                body += f"  ✓ {index}\n"
+                body += f"  - {index}\n"
             body += "\n"
             body += "Your monitoring system is working correctly.\n"
             body += "You'll receive an email next month with any changes detected."
             return body
         
-        body = "Index Constituent Changes - " + datetime.now().strftime("%B %Y") + "\n\n"
+        body = f"Index Constituent Changes - {month_year}\n\n"
         body += "=" * 60 + "\n\n"
         
         for index, change in changes.items():
@@ -256,15 +259,15 @@ class IndexMonitor:
             body += "-" * len(index) + "\n"
             
             if change['added']:
-                body += f"✓ Added ({len(change['added'])}):\n"
+                body += f"Added ({len(change['added'])}):\n"
                 for stock in change['added']:
-                    body += f"  • {stock}\n"
+                    body += f"  + {stock}\n"
                 body += "\n"
             
             if change['removed']:
-                body += f"✗ Removed ({len(change['removed'])}):\n"
+                body += f"Removed ({len(change['removed'])}):\n"
                 for stock in change['removed']:
-                    body += f"  • {stock}\n"
+                    body += f"  - {stock}\n"
                 body += "\n"
             
             body += "\n"
@@ -283,16 +286,12 @@ class IndexMonitor:
         
         recipient = self.config['email']['recipient']
         
-        # Clean both subject and body to remove problematic characters
-        subject = subject.replace('\xa0', ' ').replace('\u00a0', ' ').encode('ascii', 'ignore').decode('ascii')
-        body = body.replace('\xa0', ' ').replace('\u00a0', ' ')
-        
+        # Create email message
         msg = MIMEMultipart()
         msg['From'] = sender
         msg['To'] = recipient
         msg['Subject'] = subject
         
-        # Specify UTF-8 encoding explicitly
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
         try:
@@ -333,14 +332,16 @@ class IndexMonitor:
         print("Current state saved")
         
         # Always send email (whether changes or not)
+        month_year = datetime.now().strftime("%Y-%m")
+        
         if changes:
             print(f"\n{len(changes)} index(es) have changes")
             email_body = self.format_email_body(changes)
-            subject = f"Index Changes Detected - {datetime.now().strftime('%B %Y')}"
+            subject = f"Index Changes Detected - {month_year}"
         else:
             print("\nNo changes detected")
             email_body = self.format_email_body(changes)
-            subject = f"No Index Changes - {datetime.now().strftime('%B %Y')}"
+            subject = f"No Index Changes - {month_year}"
         
         print("\n" + email_body)
         self.send_email(subject, email_body)
