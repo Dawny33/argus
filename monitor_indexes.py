@@ -269,6 +269,23 @@ class IndexMonitor:
         message += "\n"
         message += body
         
+        # Force the ENTIRE message to ASCII as final safety check
+        message = message.encode('ascii', 'ignore').decode('ascii')
+        
+        # Debug: Check what we're about to send
+        print(f"DEBUG: Message length: {len(message)}")
+        print(f"DEBUG: First 100 chars: {repr(message[:100])}")
+        
+        try:
+            # Verify message is ASCII before sending
+            message.encode('ascii')
+            print("DEBUG: Message verified as ASCII-safe")
+        except UnicodeEncodeError as e:
+            print(f"DEBUG: Found non-ASCII at position {e.start}: {repr(message[e.start])}")
+            print(f"DEBUG: Context: {repr(message[max(0,e.start-20):e.start+20])}")
+            # Force clean again
+            message = message.encode('ascii', 'ignore').decode('ascii')
+        
         try:
             server = smtplib.SMTP(
                 self.config['email']['smtp_server'],
@@ -276,11 +293,13 @@ class IndexMonitor:
             )
             server.starttls()
             server.login(sender, password)
-            server.sendmail(sender, [recipient], message)
+            server.sendmail(sender, [recipient], message.encode('ascii'))
             server.quit()
             print(f"Email sent successfully to {recipient}")
         except Exception as e:
             print(f"Error sending email: {e}")
+            print(f"DEBUG: Exception type: {type(e)}")
+            print(f"DEBUG: Message repr (first 200): {repr(message[:200])}")
     
     def run(self):
         """Main execution method"""
