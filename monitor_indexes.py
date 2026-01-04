@@ -407,10 +407,11 @@ class IndexMonitor:
         """Send email notification using MIME."""
         sender = self._clean_credential(os.environ.get('EMAIL_SENDER', ''))
         password = self._clean_credential(os.environ.get('EMAIL_PASSWORD', ''))
-        recipient = self._clean_credential(os.environ.get('EMAIL_RECIPIENT', ''))
+        # Default recipient to sender if not specified
+        recipient = self._clean_credential(os.environ.get('EMAIL_RECIPIENT', '')) or sender
 
-        if not sender or not password or not recipient:
-            logger.warning("Email credentials not found. Set EMAIL_SENDER, EMAIL_PASSWORD, and EMAIL_RECIPIENT.")
+        if not sender or not password:
+            logger.warning("Email credentials not found. Set EMAIL_SENDER and EMAIL_PASSWORD.")
             return
 
         msg = MIMEMultipart()
