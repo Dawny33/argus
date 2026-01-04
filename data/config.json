@@ -1,16 +1,44 @@
 {
-      "indexes": [
-        "Nifty 50",
-        "Nifty Next 50",
-        "Nifty Midcap 150",
-        "Nifty Smallcap 250",
-        "Nasdaq 100",
-        "VXUS",
-        "QQQM"
-      ],
-      "email": {
-        "recipient": "jrajrohit33@gmail.com",
-        "smtp_server": "smtp.gmail.com",
-        "smtp_port": 587
-      }
+  "indexes": [
+    {
+      "name": "Nifty 50",
+      "source": "nse_api",
+      "params": {"index_name": "NIFTY 50"}
+    },
+    {
+      "name": "Nifty Next 50",
+      "source": "nse_api",
+      "params": {"index_name": "NIFTY NEXT 50"}
+    },
+    {
+      "name": "Nifty Midcap 150",
+      "source": "nse_api",
+      "params": {"index_name": "NIFTY MIDCAP 150"}
+    },
+    {
+      "name": "Nifty Smallcap 250",
+      "source": "nse_api",
+      "params": {"index_name": "NIFTY SMALLCAP 250"}
+    },
+    {
+      "name": "Nasdaq 100",
+      "source": "nasdaq_official",
+      "params": {"index_symbol": "NDX"}
+    },
+    {
+      "name": "VXUS",
+      "source": "vanguard_etf",
+      "params": {"fund_id": "3369"}
+    },
+    {
+      "name": "QQQM",
+      "source": "nasdaq_official",
+      "params": {"index_symbol": "NDX"}
     }
+  ],
+  "email": {
+    "recipient": "jrajrohit33@gmail.com",
+    "smtp_server": "smtp.gmail.com",
+    "smtp_port": 587
+  }
+}

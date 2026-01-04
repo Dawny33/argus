@@ -5,14 +5,25 @@ Fetches index constituents from official sources and sends email notifications.
 """
 
 import json
+import logging
 import os
+import re
 import smtplib
 from datetime import datetime
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from pathlib import Path
-from typing import Dict, List, Set, Optional
+from typing import Dict, List, Set
+import time
+
 import requests
 from bs4 import BeautifulSoup
-import time
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 
 class IndexMonitor:
@@ -94,162 +105,162 @@ class IndexMonitor:
     
     def fetch_from_nse(self, params: dict) -> Set[str]:
         """
-        Fetch constituents from NSE India API
+        Fetch constituents from NSE India API.
         Params: {"index_name": "NIFTY 50"}
         """
         index_name = params.get('index_name')
         if not index_name:
             return set()
-        
+
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
                 'Accept': 'application/json',
                 'Accept-Language': 'en-US,en;q=0.9',
             }
-            
+
             url = f"https://www.nseindia.com/api/equity-stockIndices?index={index_name.replace(' ', '%20')}"
-            
+
             session = requests.Session()
-            # Visit homepage first to get cookies
             session.get("https://www.nseindia.com", headers=headers, timeout=10)
             time.sleep(1)
-            
+
             response = session.get(url, headers=headers, timeout=10)
             response.raise_for_status()
-            
+
             data = response.json()
-            constituents = {item['symbol'] for item in data.get('data', [])}
-            
+            constituents = set()
+            for item in data.get('data', []):
+                symbol = item.get('symbol', '')
+                # Filter out the index name itself from constituents
+                if symbol and symbol != index_name:
+                    constituents.add(symbol)
+
             return constituents
-            
+
         except Exception as e:
-            print(f"NSE API error for {index_name}: {e}")
-            # Fallback to CSV
-            try:
-                csv_url = f"https://archives.nseindia.com/content/indices/ind_{index_name.replace(' ', '').lower()}list.csv"
-                import pandas as pd
-                df = pd.read_csv(csv_url)
-                return set(df.iloc[:, 2].dropna().tolist())
-            except Exception as e2:
-                print(f"NSE CSV fallback failed: {e2}")
-                return set()
+            logger.warning(f"NSE API error for {index_name}: {e}")
+            return self._fetch_nse_csv_fallback(index_name)
+
+    def _fetch_nse_csv_fallback(self, index_name: str) -> Set[str]:
+        """Fallback to NSE CSV archive."""
+        try:
+            import pandas as pd
+            csv_url = f"https://archives.nseindia.com/content/indices/ind_{index_name.replace(' ', '').lower()}list.csv"
+            df = pd.read_csv(csv_url)
+            symbols = set(df.iloc[:, 2].dropna().astype(str).tolist())
+            # Filter out index name
+            symbols.discard(index_name)
+            return symbols
+        except Exception as e:
+            logger.error(f"NSE CSV fallback failed for {index_name}: {e}")
+            return set()
     
     def fetch_from_nasdaq(self, params: dict) -> Set[str]:
         """
-        Fetch constituents from Nasdaq official source
+        Fetch Nasdaq 100 constituents from Wikipedia.
         Params: {"index_symbol": "NDX"}
-        Uses Nasdaq's official data portal
         """
-        index_symbol = params.get('index_symbol', 'NDX')
-        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'text/html'
+        }
+
         try:
-            # Try Nasdaq's data link service first
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept': 'application/json'
-            }
-            
-            # Nasdaq provides downloadable CSV files
-            url = f"https://www.nasdaq.com/market-activity/quotes/nasdaq-{index_symbol.lower()}-index"
-            
-            response = requests.get(url, headers=headers, timeout=15)
+            wiki_url = "https://en.wikipedia.org/wiki/Nasdaq-100"
+            response = requests.get(wiki_url, headers=headers, timeout=15)
             response.raise_for_status()
-            
+
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Look for ticker symbols in the page
             constituents = set()
-            
-            # Try to find data tables with constituents
-            tables = soup.find_all('table')
-            for table in tables:
-                rows = table.find_all('tr')
-                for row in rows:
-                    cells = row.find_all('td')
-                    if len(cells) >= 2:
-                        # Look for ticker pattern (usually uppercase, 1-5 chars)
-                        potential_ticker = cells[0].get_text().strip()
-                        if potential_ticker and potential_ticker.isupper() and 1 <= len(potential_ticker) <= 5:
-                            constituents.add(potential_ticker)
-            
-            # Fallback to Wikipedia as secondary source (more reliable for Nasdaq 100)
-            if len(constituents) < 50:  # Nasdaq 100 should have ~100 stocks
-                wiki_url = "https://en.wikipedia.org/wiki/Nasdaq-100"
-                response = requests.get(wiki_url, headers=headers, timeout=10)
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
+
+            # Find the table with id="constituents"
+            table = soup.find('table', {'id': 'constituents'})
+            if not table:
+                # Fallback: find wikitable with sortable class
                 tables = soup.find_all('table', {'class': 'wikitable'})
-                constituents = set()
-                
-                for table in tables:
-                    rows = table.find_all('tr')[1:]
-                    for row in rows:
-                        cells = row.find_all('td')
-                        if len(cells) >= 2:
-                            ticker = cells[1].get_text().strip()
-                            if ticker:
-                                constituents.add(ticker)
-            
+                for t in tables:
+                    # Look for table with "Ticker" header
+                    headers_row = t.find('tr')
+                    if headers_row:
+                        header_text = headers_row.get_text().lower()
+                        if 'ticker' in header_text or 'symbol' in header_text:
+                            table = t
+                            break
+
+            if not table:
+                logger.warning("Could not find Nasdaq 100 constituents table")
+                return set()
+
+            # Find the ticker column index
+            header_row = table.find('tr')
+            ticker_col_idx = None
+            if header_row:
+                header_cells = header_row.find_all(['th', 'td'])
+                for idx, cell in enumerate(header_cells):
+                    cell_text = cell.get_text().strip().lower()
+                    if cell_text in ('ticker', 'symbol', 'ticker symbol'):
+                        ticker_col_idx = idx
+                        break
+
+            if ticker_col_idx is None:
+                ticker_col_idx = 1  # Default: second column
+
+            # Extract tickers from data rows
+            rows = table.find_all('tr')[1:]  # Skip header
+            for row in rows:
+                cells = row.find_all(['td', 'th'])
+                if len(cells) > ticker_col_idx:
+                    ticker_cell = cells[ticker_col_idx]
+                    ticker = ticker_cell.get_text().strip()
+                    # Valid ticker: 1-5 uppercase letters
+                    if ticker and re.match(r'^[A-Z]{1,5}$', ticker):
+                        constituents.add(ticker)
+
+            if len(constituents) < 90:
+                logger.warning(f"Nasdaq 100: Only found {len(constituents)} stocks, expected ~100")
+
             return constituents
-            
+
         except Exception as e:
-            print(f"Nasdaq fetch error: {e}")
+            logger.error(f"Nasdaq fetch error: {e}")
             return set()
     
     def fetch_from_vanguard(self, params: dict) -> Set[str]:
         """
-        Fetch holdings from Vanguard ETF
-        Params: {"fund_id": "3369"} for VXUS
+        Fetch holdings from Vanguard ETF.
+        Note: VXUS has 7000+ holdings. Full tracking is not practical.
+        This handler is a placeholder for ETFs with manageable holding counts.
         """
         fund_id = params.get('fund_id')
         if not fund_id:
-            print("VXUS: Fund ID not provided")
+            logger.warning("Vanguard ETF: fund_id not provided")
             return set()
-        
-        try:
-            # Vanguard provides holdings data
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-            
-            # Vanguard holdings page
-            url = f"https://investor.vanguard.com/investment-products/etfs/profile/vxus"
-            
-            print(f"VXUS: Tracking top holdings only (full list has 7000+ holdings)")
-            
-            # For VXUS with 7000+ holdings, only track top holdings changes
-            # This is a limitation - full tracking would require API access
-            return set()
-            
-        except Exception as e:
-            print(f"Vanguard fetch error: {e}")
-            return set()
+
+        # VXUS has 7000+ holdings - tracking all is impractical
+        # This would require Vanguard API access or downloading their full holdings CSV
+        logger.info(f"Vanguard ETF (fund_id={fund_id}): Skipping - 7000+ holdings not trackable")
+        return set()
     
     def fetch_constituents(self, index_config: dict) -> Set[str]:
         """
-        Generic fetch function that routes to appropriate source handler
+        Generic fetch function that routes to appropriate source handler.
         """
         index_name = index_config['name']
         source = index_config['source']
         params = index_config.get('params', {})
-        
-        print(f"Fetching constituents for {index_name}...")
-        
-        # Get the appropriate handler
+
+        logger.info(f"Fetching constituents for {index_name}...")
+
         handler = self.source_handlers.get(source)
-        
         if not handler:
-            print(f"  Unknown source type: {source}")
+            logger.error(f"Unknown source type: {source}")
             return set()
-        
-        # Fetch constituents using the handler
+
         constituents = handler(params)
-        
-        # Clean all symbols
-        constituents = {self.clean_symbol(s) for s in constituents}
-        
-        print(f"  Found {len(constituents)} constituents")
+        constituents = {self.clean_symbol(s) for s in constituents if s}
+
+        logger.info(f"  {index_name}: Found {len(constituents)} constituents")
         return constituents
     
     def fetch_all_constituents(self) -> Dict[str, List[str]]:
@@ -296,132 +307,108 @@ class IndexMonitor:
         return changes
     
     def format_email_body(self, changes: Dict[str, Dict[str, List[str]]]) -> str:
-        """Format the email body with changes"""
+        """Format the email body with changes."""
         month_year = datetime.now().strftime('%Y-%m')
-        month_year = month_year.encode('ascii', 'ignore').decode('ascii')
-        
+        lines = []
+
         if not changes:
-            body = "No Index Constituent Changes - " + month_year + "\n\n"
-            body += "=" * 60 + "\n\n"
-            body += "All monitored indexes remain unchanged:\n\n"
+            lines.append(f"No Index Constituent Changes - {month_year}")
+            lines.append("")
+            lines.append("=" * 60)
+            lines.append("")
+            lines.append("All monitored indexes remain unchanged:")
+            lines.append("")
             for index_config in self.config['indexes']:
-                body += "  - " + index_config['name'] + "\n"
-            body += "\n"
-            body += "Your monitoring system is working correctly.\n"
-            body += "You will receive an email next month with any changes detected."
-            return body
-        
-        body = "Index Constituent Changes - " + month_year + "\n\n"
-        body += "=" * 60 + "\n\n"
-        
+                lines.append(f"  - {index_config['name']}")
+            lines.append("")
+            lines.append("Your monitoring system is working correctly.")
+            lines.append("You will receive an email next month with any changes detected.")
+            return "\n".join(lines)
+
+        lines.append(f"Index Constituent Changes - {month_year}")
+        lines.append("")
+        lines.append("=" * 60)
+        lines.append("")
+
         for index, change in changes.items():
-            body += index + "\n"
-            body += "-" * len(index) + "\n"
-            
+            lines.append(index)
+            lines.append("-" * len(index))
+
             if change['added']:
-                body += "Added (" + str(len(change['added'])) + "):\n"
+                lines.append(f"Added ({len(change['added'])}):")
                 for stock in change['added']:
-                    body += "  + " + stock + "\n"
-                body += "\n"
-            
+                    lines.append(f"  + {stock}")
+                lines.append("")
+
             if change['removed']:
-                body += "Removed (" + str(len(change['removed'])) + "):\n"
+                lines.append(f"Removed ({len(change['removed'])}):")
                 for stock in change['removed']:
-                    body += "  - " + stock + "\n"
-                body += "\n"
-            
-            body += "\n"
-        
-        return body
+                    lines.append(f"  - {stock}")
+                lines.append("")
+
+            lines.append("")
+
+        return "\n".join(lines)
     
     def send_email(self, subject: str, body: str):
-        """Send email notification"""
-        sender = os.environ.get('EMAIL_SENDER', '')
-        password = os.environ.get('EMAIL_PASSWORD', '')
-        
-        # Force clean secrets - remove ALL whitespace including non-breaking spaces
-        sender = ''.join(sender.split())
-        sender = sender.encode('ascii', 'ignore').decode('ascii')
-        
-        password = ''.join(password.split())
-        password = password.encode('ascii', 'ignore').decode('ascii')
-        
+        """Send email notification using MIME."""
+        sender = os.environ.get('EMAIL_SENDER', '').strip()
+        password = os.environ.get('EMAIL_PASSWORD', '').strip()
+
         if not sender or not password:
-            print("Email credentials not found in environment variables")
-            print("Set EMAIL_SENDER and EMAIL_PASSWORD")
+            logger.warning("Email credentials not found. Set EMAIL_SENDER and EMAIL_PASSWORD.")
             return
-        
-        recipient = self.config['email']['recipient']
-        
-        # Clean recipient
-        recipient = ''.join(recipient.split())
-        recipient = recipient.encode('ascii', 'ignore').decode('ascii')
-        
-        # Force everything to ASCII
-        subject = subject.encode('ascii', 'ignore').decode('ascii')
-        body = body.encode('ascii', 'ignore').decode('ascii')
-        
-        # Build simple email
-        message = "From: " + sender + "\n"
-        message += "To: " + recipient + "\n"
-        message += "Subject: " + subject + "\n"
-        message += "\n"
-        message += body
-        
+
+        recipient = self.config['email']['recipient'].strip()
+
+        msg = MIMEMultipart()
+        msg['From'] = sender
+        msg['To'] = recipient
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
         try:
-            server = smtplib.SMTP(
+            with smtplib.SMTP(
                 self.config['email']['smtp_server'],
                 self.config['email']['smtp_port']
-            )
-            server.starttls()
-            server.login(sender, password)
-            server.sendmail(sender, [recipient], message)
-            server.quit()
-            print(f"Email sent successfully to {recipient}")
+            ) as server:
+                server.starttls()
+                server.login(sender, password)
+                server.send_message(msg)
+            logger.info(f"Email sent successfully to {recipient}")
+        except smtplib.SMTPAuthenticationError:
+            logger.error("Email authentication failed. Check EMAIL_SENDER and EMAIL_PASSWORD.")
         except Exception as e:
-            print(f"Error sending email: {e}")
+            logger.error(f"Error sending email: {e}")
     
     def run(self):
-        """Main execution method"""
-        print("=" * 60)
-        print("Index Constituent Monitor")
-        print(f"Run date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("=" * 60)
-        print()
-        
-        # Fetch current constituents
-        print("Fetching current constituents...")
+        """Main execution method."""
+        logger.info("=" * 60)
+        logger.info("Index Constituent Monitor")
+        logger.info(f"Run date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info("=" * 60)
+
         current_state = self.fetch_all_constituents()
-        
-        # Load previous state
-        print("\nLoading previous state...")
+
+        logger.info("Loading previous state...")
         previous_state = self.load_previous_state()
-        
-        # Detect changes
-        print("\nDetecting changes...")
+
+        logger.info("Detecting changes...")
         changes = self.detect_changes(previous_state, current_state)
-        
-        # Save current state
+
         self.save_current_state(current_state)
-        print("Current state saved")
-        
-        # Generate and clean month_year
+        logger.info("Current state saved")
+
         month_year = datetime.now().strftime('%Y-%m')
-        month_year = month_year.encode('ascii', 'ignore').decode('ascii')
-        
+
         if changes:
-            print(f"\n{len(changes)} index(es) have changes")
-            email_body = self.format_email_body(changes)
-            subject = "Index Changes Detected - " + month_year
+            logger.info(f"{len(changes)} index(es) have changes")
+            subject = f"Index Changes Detected - {month_year}"
         else:
-            print("\nNo changes detected")
-            email_body = self.format_email_body(changes)
-            subject = "No Index Changes - " + month_year
-        
-        # Force clean subject and body
-        subject = subject.encode('ascii', 'ignore').decode('ascii')
-        email_body = email_body.encode('ascii', 'ignore').decode('ascii')
-        
+            logger.info("No changes detected")
+            subject = f"No Index Changes - {month_year}"
+
+        email_body = self.format_email_body(changes)
         print("\n" + email_body)
         self.send_email(subject, email_body)
 
