@@ -350,16 +350,23 @@ class IndexMonitor:
 
         return "\n".join(lines)
     
+    def _clean_credential(self, value: str) -> str:
+        """Force-clean credentials by removing all whitespace and non-ASCII chars."""
+        # Remove ALL whitespace including non-breaking spaces (\xa0)
+        cleaned = ''.join(value.split())
+        # Force ASCII encoding to strip any remaining non-ASCII characters
+        return cleaned.encode('ascii', 'ignore').decode('ascii')
+
     def send_email(self, subject: str, body: str):
         """Send email notification using MIME."""
-        sender = os.environ.get('EMAIL_SENDER', '').strip()
-        password = os.environ.get('EMAIL_PASSWORD', '').strip()
+        sender = self._clean_credential(os.environ.get('EMAIL_SENDER', ''))
+        password = self._clean_credential(os.environ.get('EMAIL_PASSWORD', ''))
 
         if not sender or not password:
             logger.warning("Email credentials not found. Set EMAIL_SENDER and EMAIL_PASSWORD.")
             return
 
-        recipient = self.config['email']['recipient'].strip()
+        recipient = self._clean_credential(self.config['email']['recipient'])
 
         msg = MIMEMultipart()
         msg['From'] = sender
