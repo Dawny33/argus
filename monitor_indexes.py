@@ -39,6 +39,7 @@ class IndexMonitor:
             'nse_api': self.fetch_from_nse,
             'nasdaq_official': self.fetch_from_nasdaq,
             'vanguard_etf': self.fetch_from_vanguard,
+            'invesco_etf': self.fetch_from_invesco,
         }
     
     def load_config(self):
@@ -82,8 +83,8 @@ class IndexMonitor:
                     },
                     {
                         "name": "QQQM",
-                        "source": "nasdaq_official",
-                        "params": {"index_symbol": "NDX"}
+                        "source": "invesco_etf",
+                        "params": {"ticker": "QQQM"}
                     }
                 ],
                 "email": {
@@ -227,15 +228,11 @@ class IndexMonitor:
     
     def fetch_from_vanguard(self, params: dict) -> Set[str]:
         """
-        Fetch holdings from Vanguard ETF using their API.
-        Params: {"fund_id": "3369", "ticker": "VXUS"}
+        Fetch holdings from Vanguard ETF using their official API.
+        Returns top 500 holdings (by weight) which covers the most significant positions.
+        Params: {"ticker": "VXUS"} or {"ticker": "VTI"}
         """
-        fund_id = params.get('fund_id')
-        ticker = params.get('ticker', 'VXUS')
-
-        if not fund_id:
-            logger.warning("Vanguard ETF: fund_id not provided")
-            return set()
+        ticker = params.get('ticker', 'VXUS').upper()
 
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -243,7 +240,7 @@ class IndexMonitor:
         }
 
         try:
-            # Vanguard's portfolio holdings API endpoint
+            # Vanguard API returns top 500 holdings sorted by weight
             url = f"https://investor.vanguard.com/investment-products/etfs/profile/api/{ticker}/portfolio-holding/stock"
             response = requests.get(url, headers=headers, timeout=30)
             response.raise_for_status()
@@ -251,60 +248,45 @@ class IndexMonitor:
             data = response.json()
             constituents = set()
 
-            # Extract holdings from the response
+            # Extract holdings
             holdings = data.get('fund', {}).get('entity', [])
+            total_available = data.get('size', len(holdings))
+
             for holding in holdings:
                 ticker_symbol = holding.get('ticker', '').strip()
-                if ticker_symbol and re.match(r'^[A-Z0-9.]{1,10}$', ticker_symbol):
+                if ticker_symbol and re.match(r'^[A-Z0-9./]{1,12}$', ticker_symbol):
                     constituents.add(ticker_symbol)
 
-            if not constituents:
-                # Fallback: try alternative API structure
-                holdings = data.get('holdings', [])
-                for holding in holdings:
-                    ticker_symbol = holding.get('ticker', holding.get('symbol', '')).strip()
-                    if ticker_symbol and re.match(r'^[A-Z0-9.]{1,10}$', ticker_symbol):
-                        constituents.add(ticker_symbol)
+            if total_available > len(holdings):
+                logger.info(f"Vanguard {ticker}: Tracking top {len(constituents)} of {total_available} total holdings")
+            else:
+                logger.info(f"Vanguard {ticker}: Fetched {len(constituents)} holdings")
 
-            logger.info(f"Vanguard {ticker}: Fetched {len(constituents)} holdings")
             return constituents
 
         except requests.exceptions.HTTPError as e:
-            logger.warning(f"Vanguard API HTTP error: {e}")
-            return self._fetch_vanguard_fallback(ticker)
-        except Exception as e:
-            logger.warning(f"Vanguard API error: {e}")
-            return self._fetch_vanguard_fallback(ticker)
-
-    def _fetch_vanguard_fallback(self, ticker: str) -> Set[str]:
-        """Fallback: scrape holdings from Vanguard's website."""
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        }
-
-        try:
-            url = f"https://investor.vanguard.com/investment-products/etfs/profile/{ticker.lower()}"
-            response = requests.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
-
-            soup = BeautifulSoup(response.text, 'html.parser')
-            constituents = set()
-
-            # Look for holding tickers in the page
-            for element in soup.find_all(['td', 'span', 'div']):
-                text = element.get_text().strip()
-                # Match ticker-like patterns (1-5 uppercase letters/numbers)
-                if text and re.match(r'^[A-Z]{1,5}$', text):
-                    # Avoid common false positives
-                    if text not in ('ETF', 'USD', 'USA', 'CEO', 'CFO', 'NAV', 'SEC'):
-                        constituents.add(text)
-
-            logger.info(f"Vanguard {ticker} fallback: Found {len(constituents)} potential holdings")
-            return constituents
-
-        except Exception as e:
-            logger.error(f"Vanguard fallback failed for {ticker}: {e}")
+            logger.warning(f"Vanguard API HTTP error for {ticker}: {e}")
             return set()
+        except Exception as e:
+            logger.error(f"Vanguard API error for {ticker}: {e}")
+            return set()
+
+    def fetch_from_invesco(self, params: dict) -> Set[str]:
+        """
+        Fetch holdings from Invesco ETF.
+        Since Invesco's website has bot protection, this uses Nasdaq 100 data
+        for QQQM (which tracks the Nasdaq 100 index).
+        Params: {"ticker": "QQQM"}
+        """
+        ticker = params.get('ticker', 'QQQM').upper()
+
+        # QQQM tracks Nasdaq 100, so use our existing Nasdaq fetcher
+        if ticker == 'QQQM':
+            logger.info(f"Invesco {ticker}: Using Nasdaq 100 constituents (same underlying index)")
+            return self.fetch_from_nasdaq({'index_symbol': 'NDX'})
+
+        logger.warning(f"Invesco {ticker}: Manual CSV download required from invesco.com")
+        return set()
     
     def fetch_constituents(self, index_config: dict) -> Set[str]:
         """

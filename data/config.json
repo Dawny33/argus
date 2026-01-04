@@ -32,8 +32,8 @@
     },
     {
       "name": "QQQM",
-      "source": "nasdaq_official",
-      "params": {"index_symbol": "NDX"}
+      "source": "invesco_etf",
+      "params": {"ticker": "QQQM"}
     }
   ],
   "email": {
