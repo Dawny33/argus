@@ -28,7 +28,7 @@
     {
       "name": "VXUS",
       "source": "vanguard_etf",
-      "params": {"fund_id": "3369"}
+      "params": {"fund_id": "3369", "ticker": "VXUS"}
     },
     {
       "name": "QQQM",
@@ -37,7 +37,6 @@
     }
   ],
   "email": {
-    "recipient": "jrajrohit33@gmail.com",
     "smtp_server": "smtp.gmail.com",
     "smtp_port": 587
   }

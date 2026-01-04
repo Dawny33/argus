@@ -78,7 +78,7 @@ class IndexMonitor:
                     {
                         "name": "VXUS",
                         "source": "vanguard_etf",
-                        "params": {"fund_id": "3369"}
+                        "params": {"fund_id": "3369", "ticker": "VXUS"}
                     },
                     {
                         "name": "QQQM",
@@ -87,7 +87,6 @@ class IndexMonitor:
                     }
                 ],
                 "email": {
-                    "recipient": "jrajrohit33@gmail.com",
                     "smtp_server": "smtp.gmail.com",
                     "smtp_port": 587
                 }
@@ -228,19 +227,84 @@ class IndexMonitor:
     
     def fetch_from_vanguard(self, params: dict) -> Set[str]:
         """
-        Fetch holdings from Vanguard ETF.
-        Note: VXUS has 7000+ holdings. Full tracking is not practical.
-        This handler is a placeholder for ETFs with manageable holding counts.
+        Fetch holdings from Vanguard ETF using their API.
+        Params: {"fund_id": "3369", "ticker": "VXUS"}
         """
         fund_id = params.get('fund_id')
+        ticker = params.get('ticker', 'VXUS')
+
         if not fund_id:
             logger.warning("Vanguard ETF: fund_id not provided")
             return set()
 
-        # VXUS has 7000+ holdings - tracking all is impractical
-        # This would require Vanguard API access or downloading their full holdings CSV
-        logger.info(f"Vanguard ETF (fund_id={fund_id}): Skipping - 7000+ holdings not trackable")
-        return set()
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+        }
+
+        try:
+            # Vanguard's portfolio holdings API endpoint
+            url = f"https://investor.vanguard.com/investment-products/etfs/profile/api/{ticker}/portfolio-holding/stock"
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            data = response.json()
+            constituents = set()
+
+            # Extract holdings from the response
+            holdings = data.get('fund', {}).get('entity', [])
+            for holding in holdings:
+                ticker_symbol = holding.get('ticker', '').strip()
+                if ticker_symbol and re.match(r'^[A-Z0-9.]{1,10}$', ticker_symbol):
+                    constituents.add(ticker_symbol)
+
+            if not constituents:
+                # Fallback: try alternative API structure
+                holdings = data.get('holdings', [])
+                for holding in holdings:
+                    ticker_symbol = holding.get('ticker', holding.get('symbol', '')).strip()
+                    if ticker_symbol and re.match(r'^[A-Z0-9.]{1,10}$', ticker_symbol):
+                        constituents.add(ticker_symbol)
+
+            logger.info(f"Vanguard {ticker}: Fetched {len(constituents)} holdings")
+            return constituents
+
+        except requests.exceptions.HTTPError as e:
+            logger.warning(f"Vanguard API HTTP error: {e}")
+            return self._fetch_vanguard_fallback(ticker)
+        except Exception as e:
+            logger.warning(f"Vanguard API error: {e}")
+            return self._fetch_vanguard_fallback(ticker)
+
+    def _fetch_vanguard_fallback(self, ticker: str) -> Set[str]:
+        """Fallback: scrape holdings from Vanguard's website."""
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }
+
+        try:
+            url = f"https://investor.vanguard.com/investment-products/etfs/profile/{ticker.lower()}"
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+            constituents = set()
+
+            # Look for holding tickers in the page
+            for element in soup.find_all(['td', 'span', 'div']):
+                text = element.get_text().strip()
+                # Match ticker-like patterns (1-5 uppercase letters/numbers)
+                if text and re.match(r'^[A-Z]{1,5}$', text):
+                    # Avoid common false positives
+                    if text not in ('ETF', 'USD', 'USA', 'CEO', 'CFO', 'NAV', 'SEC'):
+                        constituents.add(text)
+
+            logger.info(f"Vanguard {ticker} fallback: Found {len(constituents)} potential holdings")
+            return constituents
+
+        except Exception as e:
+            logger.error(f"Vanguard fallback failed for {ticker}: {e}")
+            return set()
     
     def fetch_constituents(self, index_config: dict) -> Set[str]:
         """
@@ -361,12 +425,11 @@ class IndexMonitor:
         """Send email notification using MIME."""
         sender = self._clean_credential(os.environ.get('EMAIL_SENDER', ''))
         password = self._clean_credential(os.environ.get('EMAIL_PASSWORD', ''))
+        recipient = self._clean_credential(os.environ.get('EMAIL_RECIPIENT', ''))
 
-        if not sender or not password:
-            logger.warning("Email credentials not found. Set EMAIL_SENDER and EMAIL_PASSWORD.")
+        if not sender or not password or not recipient:
+            logger.warning("Email credentials not found. Set EMAIL_SENDER, EMAIL_PASSWORD, and EMAIL_RECIPIENT.")
             return
-
-        recipient = self._clean_credential(self.config['email']['recipient'])
 
         msg = MIMEMultipart()
         msg['From'] = sender
