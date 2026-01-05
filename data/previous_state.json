@@ -456,6 +456,7 @@
       "RBLBANK",
       "RCF",
       "REDINGTON",
+      "RELINFRA",
       "RHIM",
       "RITES",
       "RKFORGE",
@@ -1197,7 +1198,36 @@
     "Parag Parikh Flexi Cap Fund - Direct Growth": {
       "month": "2026-01",
       "disclosure_date": "2026-01-05",
-      "holdings": {}
+      "holdings": {
+        "HDFC BANK": 8.0,
+        "POWER GRID CORPORATION OF INDIA": 5.9,
+        "ICICI BANK": 4.9,
+        "BAJAJ HOLDINGS & INVESTMENT": 4.7,
+        "COAL INDIA": 4.7,
+        "ITC": 4.5,
+        "KOTAK MAHINDRA BANK": 4.0,
+        "MAHINDRA & MAHINDRA": 3.6,
+        "BHARTI AIRTEL": 3.4,
+        "MARUTI SUZUKI INDIA": 3.4,
+        "AXIS BANK": 3.3,
+        "HCL TECHNOLOGIES": 2.5,
+        "INFOSYS": 2.1,
+        "DR REDDY'S LABORATORIES": 1.3,
+        "CIPLA": 1.3,
+        "ZYDUS LIFESCIENCES": 1.3,
+        "INDIAN ENERGY EXCHANGE": 0.9,
+        "BALKRISHNA INDUSTRIES": 0.8,
+        "ZYDUS WELLNESS": 0.7,
+        "TATA CONSULTANCY SERVICES": 0.7,
+        "MULTI COMMODITY EXCHANGE OF INDIA": 0.6,
+        "RELIANCE INDUSTRIES": 0.8,
+        "EMBASSY OFFICE PARKS REIT": 0.6,
+        "ALPHABET INC A": 4.2,
+        "META PLATFORMS REGISTERED SHARES A": 2.6,
+        "MICROSOFT CORP": 2.5,
+        "AMAZON COM INC": 2.2,
+        "KOTAK MAHINDRA BANK (24/09/2026)": 0.5
+      }
     }
   }
 }
