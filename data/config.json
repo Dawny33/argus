@@ -38,19 +38,43 @@
   ],
   "mutual_funds": [
     {
-      "name": "HDFC Flexi Cap Fund - Direct Growth",
-      "source": "hdfc_mf",
-      "params": {
-        "scheme_name": "HDFC Flexi Cap Fund"
-      }
-    },
-    {
       "name": "Parag Parikh Flexi Cap Fund - Direct Growth",
       "source": "ppfas_mf",
       "params": {
         "scheme_name": "Parag Parikh Flexi Cap Fund",
         "fund_code": "PPFCF"
       }
+    },
+    {
+      "name": "Tata ELSS Fund - Direct Growth",
+      "source": "tata_mf",
+      "params": {
+        "sheet_code": "TTSF96",
+        "scheme_name": "TATA ELSS FUND"
+      }
+    },
+    {
+      "name": "Parag Parikh ELSS Tax Saver Fund - Direct Growth",
+      "source": "ppfas_mf",
+      "params": {
+        "scheme_name": "Parag Parikh ELSS Tax Saver Fund",
+        "fund_code": "PPTSF"
+      }
+    },
+    {
+      "name": "Quant Small Cap Fund - Direct Growth",
+      "source": "quant_mf",
+      "params": {
+        "scheme_name": "Quant Small Cap Fund"
+      }
+    },
+    {
+      "name": "Bandhan ELSS Tax Saver Fund - Direct Growth",
+      "source": "bandhan_mf",
+      "params": {
+        "scheme_name": "Bandhan ELSS Tax Saver Fund"
+      },
+      "_comment": "Uses Gmail portfolio disclosure emails as primary source, with Advisorkhoj and Selenium as fallbacks"
     }
   ],
   "thresholds": {

@@ -1,10 +1,10 @@
-name: Index Monitor
+name: Portfolio Monitor (Indexes & Mutual Funds)
 
 on:
   schedule:
   # Runs at 9:00 AM UTC every Monday
   - cron: '0 9 * * 1'
-  
+
   workflow_dispatch:  # Allows manual triggering
 permissions:
   contents: write
@@ -12,31 +12,33 @@ permissions:
 jobs:
   monitor:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-        
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        
-    - name: Run index monitor
+
+    - name: Run portfolio monitor
       env:
         EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
         EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+        # EMAIL_RECIPIENT is optional - defaults to EMAIL_SENDER if not set
+        EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
       run: |
         python monitor_indexes.py
-        
+
     - name: Commit and push state changes
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add data/
-        git diff --quiet && git diff --staged --quiet || (git commit -m "Update index state - $(date +'%Y-%m-%d')" && git push)
+        git diff --quiet && git diff --staged --quiet || (git commit -m "Update portfolio state (indexes & mutual funds) - $(date +'%Y-%m-%d')" && git push)

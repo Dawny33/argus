@@ -28,13 +28,30 @@ Argus monitors stock index constituents, ETF holdings, and mutual fund portfolio
 
 ### Mutual Funds (NEW!)
 
-| AMC | Status | Coverage |
-|-----|--------|----------|
-| PPFAS (Parag Parikh) | ✅ Working | Full portfolio with all holdings |
-| HDFC MF | ⚠️ In Development | - |
-| Others | 🚧 Planned | - |
+#### Supported AMCs
 
-See **[MF-GUIDE.md](MF-GUIDE.md)** for detailed mutual fund configuration and usage.
+| AMC | Status | Example Funds | Data Sources (Priority Order) | Notes |
+|-----|--------|--------------|-------------------------------|-------|
+| **PPFAS (Parag Parikh)** | ✅ Fully Working | Flexi Cap, ELSS Tax Saver | 1. Gmail<br>2. Direct AMC website | Auto-parses Excel files |
+| **Tata Mutual Fund** | ✅ Fully Working | ELSS, All equity funds | 1. Gmail<br>2. Advisorkhoj<br>3. Direct website | Consolidated Excel parsing |
+| **Quant Mutual Fund** | ✅ Fully Working | Small Cap, All funds | 1. Gmail<br>2. Advisorkhoj<br>3. Direct website | Sheet-based Excel parsing |
+| **Bandhan Mutual Fund** | ⚠️ Partial | ELSS (Gmail needed) | 1. Gmail<br>2. Advisorkhoj<br>3. Selenium fallback | Requires portfolio emails |
+| **HDFC Mutual Fund** | 🚧 Planned | - | Website blocks automation | Coming soon |
+
+**Current Tracking:** 4 out of 5 tested funds working (80% success rate)
+
+#### Data Source Strategy
+
+All mutual fund fetchers use a **cascading fallback approach**:
+
+1. **📧 Gmail (Primary)** - Fastest and most reliable when portfolio disclosure emails are available
+2. **🌐 Advisorkhoj (Fallback #1)** - Third-party aggregator portal with direct download links
+3. **🤖 Selenium (Fallback #2)** - Browser automation for JavaScript-heavy sites
+4. **📥 Direct Website (Fallback #3)** - Direct AMC website scraping where applicable
+
+> **💡 Tip:** The system automatically uses Gmail when you receive monthly portfolio disclosure emails from AMCs. No configuration needed - it just works when emails arrive!
+
+See **[MF-GUIDE.md](MF-GUIDE.md)** for step-by-step instructions on adding mutual funds to track.
 
 ## Installation
 
@@ -55,7 +72,7 @@ pip install -r requirements.txt
 
 ### Email Setup
 
-Set these environment variables for email notifications:
+Set these environment variables for email notifications **and Gmail portfolio fetching**:
 
 ```bash
 export EMAIL_SENDER="your-email@gmail.com"
@@ -64,6 +81,8 @@ export EMAIL_RECIPIENT="recipient@example.com"
 ```
 
 > **Note**: For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password.
+
+> **New!** The same credentials are now used to access your Gmail inbox for portfolio disclosure emails from AMCs. This provides the most reliable data source for mutual fund tracking. See [GMAIL-SETUP.md](GMAIL-SETUP.md) for details.
 
 ### Index & Mutual Fund Configuration
 
@@ -122,6 +141,9 @@ Edit `data/config.json` to customize monitored indexes and mutual funds:
 | Source | AMC | Parameters |
 |--------|-----|------------|
 | `ppfas_mf` | PPFAS (Parag Parikh) | `scheme_name`, `fund_code` |
+| `tata_mf` | Tata Mutual Fund | `sheet_code`, `scheme_name` |
+| `quant_mf` | Quant Mutual Fund | `scheme_name` |
+| `bandhan_mf` | Bandhan MF (disabled) | `scheme_name` |
 
 ## Usage
 
@@ -228,9 +250,10 @@ def fetch_from_new_source(self, params: dict) -> Set[str]:
 - **Invesco ETFs**: Uses Nasdaq 100 data for QQQM (direct API requires authentication)
 
 ### Mutual Funds
-- **Limited AMC coverage**: Currently only PPFAS (Parag Parikh) fully supported
+- **Limited AMC coverage**: 3 AMCs supported (PPFAS, Tata, Quant) with 4 active funds
+- **Data source availability**: Some AMCs (e.g., Bandhan) don't have accessible portfolio files on aggregator sites
 - **Monthly data only**: Funds update portfolios monthly per SEBI regulations
-- **Excel format dependency**: Requires AMC to publish data in parseable Excel format
+- **Excel format dependency**: Requires AMC to publish data in parseable Excel format or accessible via Advisorkhoj
 
 ### General
 - **Rate limiting**: 2-second delay between requests to avoid blocking
