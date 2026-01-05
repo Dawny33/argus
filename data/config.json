@@ -36,6 +36,27 @@
       "params": {"ticker": "QQQM"}
     }
   ],
+  "mutual_funds": [
+    {
+      "name": "HDFC Flexi Cap Fund - Direct Growth",
+      "source": "hdfc_mf",
+      "params": {
+        "scheme_name": "HDFC Flexi Cap Fund"
+      }
+    },
+    {
+      "name": "Parag Parikh Flexi Cap Fund - Direct Growth",
+      "source": "ppfas_mf",
+      "params": {
+        "scheme_name": "Parag Parikh Flexi Cap Fund",
+        "fund_code": "PPFCF"
+      }
+    }
+  ],
+  "thresholds": {
+    "mf_percentage_change": 0.5,
+    "min_holding_to_report": 0.5
+  },
   "email": {
     "smtp_server": "smtp.gmail.com",
     "smtp_port": 587

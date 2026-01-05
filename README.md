@@ -1,16 +1,20 @@
-# Argus - Index Constituent Monitor
+# Argus - Portfolio Monitor
 
-Argus monitors stock index constituents and ETF holdings, detecting changes and sending email notifications. Perfect for investors who want to stay informed about index rebalancing events.
+Argus monitors stock index constituents, ETF holdings, and mutual fund portfolios, detecting changes and sending email notifications. Perfect for investors who want to stay informed about index rebalancing events and mutual fund portfolio changes.
 
 ## Features
 
-- **Multi-source data fetching** - Supports NSE India, Nasdaq 100, Vanguard ETFs, and Invesco ETFs
-- **Change detection** - Tracks additions and removals from indexes
-- **Email notifications** - Sends alerts when constituent changes are detected
-- **Configurable** - Easy JSON-based configuration for adding new indexes
+- **Multi-source data fetching** - Supports NSE India, Nasdaq 100, Vanguard ETFs, Invesco ETFs, and Indian Mutual Funds
+- **Change detection** - Tracks additions and removals from indexes, plus percentage changes in mutual fund holdings
+- **Email notifications** - Unified alerts for both index and mutual fund changes
+- **Mutual fund tracking** - Monitor portfolio holdings with configurable thresholds (≥0.5% changes)
+- **International holdings** - Tracks both Indian and foreign stocks in mutual funds
+- **Configurable** - Easy JSON-based configuration for indexes and mutual funds
 - **Production-ready** - Proper logging, error handling, and rate limiting
 
-## Supported Indexes & ETFs
+## Supported Indexes, ETFs & Mutual Funds
+
+### Indexes & ETFs
 
 | Index/ETF | Source | Coverage |
 |-----------|--------|----------|
@@ -21,6 +25,16 @@ Argus monitors stock index constituents and ETF holdings, detecting changes and 
 | Nasdaq 100 | Wikipedia | Full |
 | VXUS (Vanguard) | Vanguard API | Top 500 holdings |
 | QQQM (Invesco) | Nasdaq 100 data | Full |
+
+### Mutual Funds (NEW!)
+
+| AMC | Status | Coverage |
+|-----|--------|----------|
+| PPFAS (Parag Parikh) | ✅ Working | Full portfolio with all holdings |
+| HDFC MF | ⚠️ In Development | - |
+| Others | 🚧 Planned | - |
+
+See **[MF-GUIDE.md](MF-GUIDE.md)** for detailed mutual fund configuration and usage.
 
 ## Installation
 
@@ -51,9 +65,9 @@ export EMAIL_RECIPIENT="recipient@example.com"
 
 > **Note**: For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password.
 
-### Index Configuration
+### Index & Mutual Fund Configuration
 
-Edit `data/config.json` to customize monitored indexes:
+Edit `data/config.json` to customize monitored indexes and mutual funds:
 
 ```json
 {
@@ -69,6 +83,20 @@ Edit `data/config.json` to customize monitored indexes:
       "params": {"ticker": "VXUS"}
     }
   ],
+  "mutual_funds": [
+    {
+      "name": "Parag Parikh Flexi Cap Fund - Direct Growth",
+      "source": "ppfas_mf",
+      "params": {
+        "scheme_name": "Parag Parikh Flexi Cap Fund",
+        "fund_code": "PPFCF"
+      }
+    }
+  ],
+  "thresholds": {
+    "mf_percentage_change": 0.5,
+    "min_holding_to_report": 0.5
+  },
   "email": {
     "smtp_server": "smtp.gmail.com",
     "smtp_port": 587
@@ -76,7 +104,11 @@ Edit `data/config.json` to customize monitored indexes:
 }
 ```
 
+**For detailed mutual fund configuration, see [MF-GUIDE.md](MF-GUIDE.md)**
+
 ### Available Sources
+
+**Index & ETF Sources:**
 
 | Source | Description | Parameters |
 |--------|-------------|------------|
@@ -84,6 +116,12 @@ Edit `data/config.json` to customize monitored indexes:
 | `nasdaq_official` | Nasdaq 100 index | `index_symbol`: e.g., "NDX" |
 | `vanguard_etf` | Vanguard ETF holdings | `ticker`: e.g., "VXUS", "VTI" |
 | `invesco_etf` | Invesco ETF holdings | `ticker`: e.g., "QQQM" |
+
+**Mutual Fund Sources:**
+
+| Source | AMC | Parameters |
+|--------|-----|------------|
+| `ppfas_mf` | PPFAS (Parag Parikh) | `scheme_name`, `fund_code` |
 
 ## Usage
 
@@ -112,9 +150,12 @@ The repository includes a GitHub Actions workflow for automated monthly runs. Se
 
 ## Output Example
 
+### Index Changes
 ```
-Index Constituent Changes - 2026-01
+Portfolio Changes Detected - 2026-01
 
+============================================================
+INDEX CONSTITUENT CHANGES
 ============================================================
 
 Nifty 50
@@ -128,17 +169,40 @@ Removed (2):
   - OLDSTOCK2
 ```
 
+### Mutual Fund Changes
+```
+============================================================
+MUTUAL FUND HOLDINGS CHANGES
+============================================================
+
+Parag Parikh Flexi Cap Fund - Direct Growth
+--------------------------------------------
+Period: November 2025
+
+NEW ADDITIONS (2):
+  + RELIANCE (2.3%)
+  + TCS (1.8%)
+
+SIGNIFICANT INCREASES:
+  ICICIBANK: 6.5% -> 7.2% (+0.7%)
+
+SIGNIFICANT DECREASES:
+  BHARTIARTL: 3.5% -> 2.8% (-0.7%)
+```
+
 ## Project Structure
 
 ```
 argus/
-├── monitor_indexes.py   # Main application
-├── requirements.txt     # Python dependencies
+├── monitor_indexes.py       # Main application
+├── requirements.txt         # Python dependencies
+├── README.md               # This file
+├── MF-GUIDE.md            # Mutual fund tracking guide
 ├── data/
-│   ├── config.json      # Index configuration
-│   └── previous_state.json  # Last known state
+│   ├── config.json         # Index & MF configuration
+│   └── previous_state.json # Last known state (indexes + MFs)
 └── .github/
-    └── workflows/       # GitHub Actions
+    └── workflows/          # GitHub Actions
 ```
 
 ## Adding New Indexes
@@ -159,8 +223,16 @@ def fetch_from_new_source(self, params: dict) -> Set[str]:
 
 ## Limitations
 
+### Indexes & ETFs
 - **Vanguard ETFs**: Only top 500 holdings are tracked (API limitation)
 - **Invesco ETFs**: Uses Nasdaq 100 data for QQQM (direct API requires authentication)
+
+### Mutual Funds
+- **Limited AMC coverage**: Currently only PPFAS (Parag Parikh) fully supported
+- **Monthly data only**: Funds update portfolios monthly per SEBI regulations
+- **Excel format dependency**: Requires AMC to publish data in parseable Excel format
+
+### General
 - **Rate limiting**: 2-second delay between requests to avoid blocking
 
 ## Contributing
