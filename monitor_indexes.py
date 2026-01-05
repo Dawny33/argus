@@ -118,6 +118,14 @@ class GmailPortfolioFetcher:
     AMCs send monthly portfolio disclosure emails with download links.
     """
 
+    @staticmethod
+    def _clean_credential(value: str) -> str:
+        """Force-clean credentials by removing all whitespace and non-ASCII chars."""
+        # Remove ALL whitespace including non-breaking spaces (\xa0)
+        cleaned = ''.join(value.split())
+        # Force ASCII encoding to strip any remaining non-ASCII characters
+        return cleaned.encode('ascii', 'ignore').decode('ascii')
+
     def __init__(self, email_address: str, email_password: str):
         """
         Initialize Gmail fetcher with credentials.
@@ -126,8 +134,9 @@ class GmailPortfolioFetcher:
             email_address: Gmail address
             email_password: App password for Gmail
         """
-        self.email_address = email_address
-        self.email_password = email_password
+        # Clean credentials to remove whitespace and non-ASCII characters
+        self.email_address = self._clean_credential(email_address)
+        self.email_password = self._clean_credential(email_password)
         self.imap_server = "imap.gmail.com"
 
     def connect(self) -> Optional[imaplib.IMAP4_SSL]:
@@ -358,8 +367,8 @@ class IndexMonitor:
         self.mf_detector = MFChangeDetector(threshold=mf_threshold)
 
         # Gmail portfolio fetcher (optional - only if credentials available)
-        email_sender = os.getenv('EMAIL_SENDER', '')
-        email_password = os.getenv('EMAIL_PASSWORD', '')
+        email_sender = self._clean_credential(os.getenv('EMAIL_SENDER', ''))
+        email_password = self._clean_credential(os.getenv('EMAIL_PASSWORD', ''))
 
         self.gmail_fetcher = None
         if email_sender and email_password:
