@@ -29,6 +29,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from anthropic import Anthropic
 
 logging.basicConfig(
     level=logging.INFO,
@@ -337,6 +338,125 @@ class GmailPortfolioFetcher:
         return None
 
 
+class TickerResolver:
+    """
+    Resolves ticker symbols to company names using Claude LLM.
+    Differentiates between Indian and international stocks.
+    """
+
+    def __init__(self, api_key: Optional[str] = None):
+        """
+        Initialize the TickerResolver.
+
+        Args:
+            api_key: Anthropic API key. If not provided, reads from ANTHROPIC_API_KEY env var.
+        """
+        self.api_key = api_key or os.getenv('ANTHROPIC_API_KEY')
+        self.client = None
+
+        if self.api_key:
+            try:
+                self.client = Anthropic(api_key=self.api_key)
+                logging.info("TickerResolver initialized with Claude API")
+            except Exception as e:
+                logging.warning(f"Could not initialize TickerResolver: {e}")
+        else:
+            logging.warning("ANTHROPIC_API_KEY not found. Ticker resolution will be skipped.")
+
+    def is_available(self) -> bool:
+        """Check if the resolver is available (API key configured)."""
+        return self.client is not None
+
+    def resolve_tickers(self, diff_text: str, index_name: str) -> Dict[str, str]:
+        """
+        Resolve ticker symbols in the diff to company names.
+
+        Args:
+            diff_text: The diff text containing ticker symbols (e.g., "Added: + ANTO, + BOL")
+            index_name: The name of the index/fund (e.g., "VXUS", "Nifty 50")
+
+        Returns:
+            Dict mapping ticker symbols to company names
+            Example: {"ANTO": "Antofagasta plc", "BOL": "Boliden AB"}
+        """
+        if not self.is_available():
+            return {}
+
+        # Determine if this is an Indian or international index
+        indian_keywords = ['nifty', 'sensex', 'bse', 'nse']
+        is_indian = any(keyword in index_name.lower() for keyword in indian_keywords)
+
+        market_context = "Indian stock market (NSE/BSE)" if is_indian else "International stock market"
+
+        prompt = f"""Given the following portfolio changes from {index_name} (which tracks {market_context}), please identify all the ticker symbols and provide their full company names.
+
+Diff text:
+{diff_text}
+
+Please analyze the ticker symbols and return them in the following JSON format:
+{{
+  "TICKER1": "Full Company Name 1",
+  "TICKER2": "Full Company Name 2",
+  ...
+}}
+
+Important guidelines:
+1. For {market_context}, focus on stocks from that market
+2. Ticker symbols are typically 1-6 characters (uppercase letters/numbers)
+3. If you see numbers like "012330", these are stock codes (especially for international markets)
+4. For Indian stocks, tickers are usually 1-5 uppercase letters (e.g., TCS, INFY, RELIANCE)
+5. For international stocks, they can be letters with numbers (e.g., 2383, 6920)
+6. Provide the most commonly known company name
+7. If a ticker is ambiguous or unknown, use "Unknown Company" as the value
+
+Return ONLY the JSON object, nothing else."""
+
+        try:
+            message = self.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=2048,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ]
+            )
+
+            response_text = message.content[0].text.strip()
+
+            # Parse JSON response
+            # Remove markdown code blocks if present
+            if response_text.startswith('```'):
+                lines = response_text.split('\n')
+                response_text = '\n'.join(lines[1:-1])
+
+            ticker_map = json.loads(response_text)
+            logging.info(f"Resolved {len(ticker_map)} tickers for {index_name}")
+            return ticker_map
+
+        except Exception as e:
+            logging.error(f"Error resolving tickers: {e}")
+            return {}
+
+    def format_with_company_names(self, tickers: List[str], ticker_map: Dict[str, str]) -> List[str]:
+        """
+        Format ticker list with company names.
+
+        Args:
+            tickers: List of ticker symbols
+            ticker_map: Dict mapping tickers to company names
+
+        Returns:
+            List of formatted strings like "ANTO (Antofagasta plc)"
+        """
+        formatted = []
+        for ticker in tickers:
+            company_name = ticker_map.get(ticker)
+            if company_name and company_name != "Unknown Company":
+                formatted.append(f"{ticker} ({company_name})")
+            else:
+                formatted.append(ticker)
+        return formatted
+
+
 class IndexMonitor:
     def __init__(self, data_dir: str = "data"):
         self.data_dir = Path(data_dir)
@@ -377,6 +497,11 @@ class IndexMonitor:
                 logging.info("Gmail portfolio fetcher initialized")
             except Exception as e:
                 logging.warning(f"Could not initialize Gmail fetcher: {e}")
+
+        # Initialize ticker resolver (optional - only if API key available)
+        self.ticker_resolver = TickerResolver()
+        if not self.ticker_resolver.is_available():
+            logging.info("Ticker resolver not available. Set ANTHROPIC_API_KEY to enable company name resolution.")
 
     def _get_selenium_driver(self):
         """
@@ -1799,15 +1924,39 @@ class IndexMonitor:
                 lines.append(index)
                 lines.append("-" * len(index))
 
+                # Try to resolve tickers to company names
+                ticker_map = {}
+                if self.ticker_resolver.is_available() and (change['added'] or change['removed']):
+                    # Build a simple diff text for the LLM
+                    diff_parts = []
+                    if change['added']:
+                        diff_parts.append(f"Added ({len(change['added'])}):")
+                        for stock in change['added']:
+                            diff_parts.append(f"  + {stock}")
+                    if change['removed']:
+                        diff_parts.append(f"Removed ({len(change['removed'])}):")
+                        for stock in change['removed']:
+                            diff_parts.append(f"  - {stock}")
+
+                    diff_text = "\n".join(diff_parts)
+                    logger.info(f"Resolving tickers for {index}...")
+                    ticker_map = self.ticker_resolver.resolve_tickers(diff_text, index)
+
                 if change['added']:
                     lines.append(f"Added ({len(change['added'])}):")
-                    for stock in change['added']:
+                    formatted_added = self.ticker_resolver.format_with_company_names(
+                        change['added'], ticker_map
+                    ) if ticker_map else change['added']
+                    for stock in formatted_added:
                         lines.append(f"  + {stock}")
                     lines.append("")
 
                 if change['removed']:
                     lines.append(f"Removed ({len(change['removed'])}):")
-                    for stock in change['removed']:
+                    formatted_removed = self.ticker_resolver.format_with_company_names(
+                        change['removed'], ticker_map
+                    ) if ticker_map else change['removed']
+                    for stock in formatted_removed:
                         lines.append(f"  - {stock}")
                     lines.append("")
 

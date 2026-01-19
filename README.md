@@ -7,6 +7,7 @@ Argus monitors stock index constituents, ETF holdings, and mutual fund portfolio
 - **Multi-source data fetching** - Supports NSE India, Nasdaq 100, Vanguard ETFs, Invesco ETFs, and Indian Mutual Funds
 - **Change detection** - Tracks additions and removals from indexes, plus percentage changes in mutual fund holdings
 - **Email notifications** - Unified alerts for both index and mutual fund changes
+- **LLM-powered ticker resolution** 🆕 - Automatically converts ticker symbols to full company names using Claude AI (optional)
 - **Mutual fund tracking** - Monitor portfolio holdings with configurable thresholds (≥0.5% changes)
 - **International holdings** - Tracks both Indian and foreign stocks in mutual funds
 - **Configurable** - Easy JSON-based configuration for indexes and mutual funds
@@ -83,6 +84,40 @@ export EMAIL_RECIPIENT="recipient@example.com"
 > **Note**: For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password.
 
 > **New!** The same credentials are now used to access your Gmail inbox for portfolio disclosure emails from AMCs. This provides the most reliable data source for mutual fund tracking. See [GMAIL-SETUP.md](GMAIL-SETUP.md) for details.
+
+### LLM Ticker Resolution Setup (Optional) 🆕
+
+To enable automatic ticker-to-company-name resolution in email reports:
+
+```bash
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+```
+
+Get your API key from [Anthropic Console](https://console.anthropic.com/).
+
+**What it does:**
+- Converts ticker symbols like "ANTO", "BOL", "012330" to full company names ("Antofagasta plc", "Boliden AB", etc.)
+- Automatically differentiates between Indian and international stocks based on the index
+- Works for both index changes and mutual fund holdings
+- If not configured, the system still works but shows only ticker symbols
+
+**Example output with LLM enabled:**
+```
+VXUS
+----
+Added (12):
+  + 012330 (Hyundai Motor Company)
+  + 2383 (Tom Group Limited)
+  + ANTO (Antofagasta plc)
+  + BOL (Boliden AB)
+  ...
+
+Nifty 50
+--------
+Added (2):
+  + TCS (Tata Consultancy Services)
+  + INFY (Infosys Limited)
+```
 
 ### Index & Mutual Fund Configuration
 
@@ -166,9 +201,12 @@ Add to crontab for monthly monitoring:
 
 The repository includes a GitHub Actions workflow for automated monthly runs. Set these secrets in your repository:
 
-- `EMAIL_SENDER`
-- `EMAIL_PASSWORD`
-- `EMAIL_RECIPIENT`
+- `EMAIL_SENDER` - Your Gmail address (required)
+- `EMAIL_PASSWORD` - Your Gmail app password (required)
+- `EMAIL_RECIPIENT` - Email recipient (optional, defaults to EMAIL_SENDER)
+- `ANTHROPIC_API_KEY` - Your Anthropic API key (optional, enables LLM ticker resolution)
+
+To add secrets: Go to your GitHub repository → Settings → Secrets and variables → Actions → New repository secret
 
 ## Output Example
 
