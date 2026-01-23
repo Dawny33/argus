@@ -32,7 +32,7 @@ class PortfolioMonitor:
 
         Args:
             data_dir: Directory for storing config and state files
-            gmail_credentials: Optional dict with 'email' and 'password' for Gmail fetching
+            gmail_credentials: Optional dict with 'email' and 'password' for Gmail fetching and email notifications
             anthropic_api_key: Optional Anthropic API key for ticker resolution
         """
         self.data_dir = Path(data_dir)
@@ -55,7 +55,16 @@ class PortfolioMonitor:
 
         # Initialize formatter and notifier
         self.formatter = EmailFormatter(self.config, self.ticker_resolver)
-        self.notifier = EmailNotifier(self.config.get('email', {}))
+
+        # Initialize email notifier with credentials from environment
+        email_config = self.config.get('email', {})
+        self.notifier = EmailNotifier(
+            smtp_server=email_config.get('smtp_server', 'smtp.gmail.com'),
+            smtp_port=email_config.get('smtp_port', 587),
+            sender=gmail_credentials.get('email') if gmail_credentials else None,
+            password=gmail_credentials.get('password') if gmail_credentials else None,
+            recipient=gmail_credentials.get('recipient') if gmail_credentials else None  # Will default to sender
+        )
 
     def _load_config(self) -> Dict:
         """Load configuration from config.json."""

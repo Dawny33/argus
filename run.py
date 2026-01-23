@@ -22,15 +22,21 @@ logger = logging.getLogger(__name__)
 def main():
     """Main entry point for portfolio monitor."""
     try:
-        # Get Gmail credentials from environment (optional)
-        gmail_creds = None
+        # Get credentials from environment (optional)
         email_sender = os.getenv('EMAIL_SENDER')
         email_password = os.getenv('EMAIL_PASSWORD')
+        email_recipient = os.getenv('EMAIL_RECIPIENT')  # Optional, defaults to sender
 
+        # If no recipient specified, use sender (for both Gmail and email notifications)
+        if not email_recipient:
+            email_recipient = email_sender
+
+        gmail_creds = None
         if email_sender and email_password:
             gmail_creds = {
                 'email': email_sender,
-                'password': email_password
+                'password': email_password,
+                'recipient': email_recipient  # Will be same as sender if not specified
             }
 
         # Get Anthropic API key from environment (optional)
