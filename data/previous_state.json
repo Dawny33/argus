@@ -456,6 +456,7 @@
       "RBLBANK",
       "RCF",
       "REDINGTON",
+      "RELINFRA",
       "RHIM",
       "RITES",
       "RKFORGE",
@@ -1190,8 +1191,8 @@
   },
   "mutual_funds": {
     "Parag Parikh Flexi Cap Fund - Direct Growth": {
-      "month": "2026-01",
-      "disclosure_date": "2026-01-26",
+      "month": "2026-02",
+      "disclosure_date": "2026-02-02",
       "holdings": {
         "HDFC BANK": 8.1,
         "POWER GRID CORPORATION OF INDIA": 6.1,
@@ -1225,8 +1226,8 @@
       }
     },
     "Tata ELSS Fund - Direct Growth": {
-      "month": "2026-01",
-      "disclosure_date": "2026-01-26",
+      "month": "2026-02",
+      "disclosure_date": "2026-02-02",
       "holdings": {
         "HDFC BANK": 7.2,
         "ICICI BANK": 6.2,
@@ -1286,8 +1287,8 @@
       }
     },
     "Parag Parikh ELSS Tax Saver Fund - Direct Growth": {
-      "month": "2026-01",
-      "disclosure_date": "2026-01-26",
+      "month": "2026-02",
+      "disclosure_date": "2026-02-02",
       "holdings": {
         "HDFC BANK": 8.0,
         "BAJAJ HOLDINGS & INVESTMENT": 6.5,
@@ -1324,8 +1325,8 @@
       }
     },
     "Quant Small Cap Fund - Direct Growth": {
-      "month": "2026-01",
-      "disclosure_date": "2026-01-26",
+      "month": "2026-02",
+      "disclosure_date": "2026-02-02",
       "holdings": {
         "RELIANCE INDUSTRIES": 10.2,
         "JIO FINANCIAL SERVICES": 6.1,
@@ -1378,8 +1379,8 @@
       }
     },
     "Bandhan ELSS Tax Saver Fund - Direct Growth": {
-      "month": "2026-01",
-      "disclosure_date": "2026-01-26",
+      "month": "2026-02",
+      "disclosure_date": "2026-02-02",
       "holdings": {
         "HDFC BANK": 8.0,
         "RELIANCE INDUSTRIES": 7.1,
