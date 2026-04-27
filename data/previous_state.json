@@ -594,9 +594,9 @@
       "ROST",
       "SBUX",
       "SHOP",
+      "SNDK",
       "SNPS",
       "STX",
-      "TEAM",
       "TMUS",
       "TRI",
       "TSLA",
@@ -1168,9 +1168,9 @@
       "ROST",
       "SBUX",
       "SHOP",
+      "SNDK",
       "SNPS",
       "STX",
-      "TEAM",
       "TMUS",
       "TRI",
       "TSLA",
@@ -1189,7 +1189,7 @@
   "mutual_funds": {
     "Parag Parikh Flexi Cap Fund - Direct Growth": {
       "month": "2026-04",
-      "disclosure_date": "2026-04-20",
+      "disclosure_date": "2026-04-27",
       "holdings": {
         "HDFC BANK": 8.0,
         "POWER GRID CORPORATION OF INDIA": 7.2,
@@ -1223,7 +1223,7 @@
     },
     "Tata ELSS Fund - Direct Growth": {
       "month": "2026-04",
-      "disclosure_date": "2026-04-20",
+      "disclosure_date": "2026-04-27",
       "holdings": {
         "HDFC BANK": 7.2,
         "ICICI BANK": 6.2,
@@ -1284,7 +1284,7 @@
     },
     "Parag Parikh ELSS Tax Saver Fund - Direct Growth": {
       "month": "2026-04",
-      "disclosure_date": "2026-04-20",
+      "disclosure_date": "2026-04-27",
       "holdings": {
         "HDFC BANK": 8.0,
         "POWER GRID CORPORATION OF INDIA": 7.7,
@@ -1320,7 +1320,7 @@
     },
     "Quant Small Cap Fund - Direct Growth": {
       "month": "2026-04",
-      "disclosure_date": "2026-04-20",
+      "disclosure_date": "2026-04-27",
       "holdings": {
         "RELIANCE INDUSTRIES": 10.2,
         "JIO FINANCIAL SERVICES": 6.1,
@@ -1374,7 +1374,7 @@
     },
     "Bandhan ELSS Tax Saver Fund - Direct Growth": {
       "month": "2026-04",
-      "disclosure_date": "2026-04-20",
+      "disclosure_date": "2026-04-27",
       "holdings": {
         "HDFC BANK": 7.1,
         "RELIANCE INDUSTRIES": 7.1,
