@@ -515,7 +515,7 @@
   "mutual_funds": {
     "Parag Parikh Flexi Cap Fund - Direct Growth": {
       "month": "2026-08",
-      "disclosure_date": "2026-08-24",
+      "disclosure_date": "2026-08-31",
       "holdings": {
         "HDFC BANK": 7.5,
         "POWER GRID CORPORATION OF INDIA": 6.0,
@@ -549,7 +549,7 @@
     },
     "Tata ELSS Fund - Direct Growth": {
       "month": "2026-08",
-      "disclosure_date": "2026-08-24",
+      "disclosure_date": "2026-08-31",
       "holdings": {
         "HDFC BANK": 7.2,
         "ICICI BANK": 6.2,
@@ -610,7 +610,7 @@
     },
     "Parag Parikh ELSS Tax Saver Fund - Direct Growth": {
       "month": "2026-08",
-      "disclosure_date": "2026-08-24",
+      "disclosure_date": "2026-08-31",
       "holdings": {
         "HDFC BANK": 7.6,
         "BAJAJ HOLDINGS & INVESTMENT": 7.0,
@@ -646,7 +646,7 @@
     },
     "Quant Small Cap Fund - Direct Growth": {
       "month": "2026-08",
-      "disclosure_date": "2026-08-24",
+      "disclosure_date": "2026-08-31",
       "holdings": {
         "RELIANCE INDUSTRIES": 10.2,
         "JIO FINANCIAL SERVICES": 6.1,
@@ -700,7 +700,7 @@
     },
     "Bandhan ELSS Tax Saver Fund - Direct Growth": {
       "month": "2026-08",
-      "disclosure_date": "2026-08-24",
+      "disclosure_date": "2026-08-31",
       "holdings": {}
     }
   }
